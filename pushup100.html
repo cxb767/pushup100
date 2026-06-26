@@ -644,6 +644,7 @@ function loadState() {
 }
 function saveState() {
   localStorage.setItem('pushup_state_v2', JSON.stringify(state));
+  if (window.saveToCloud) window.saveToCloud(state);
 }
 
 /* ── SETUP ── */
@@ -1048,6 +1049,66 @@ if ('serviceWorker' in navigator) {
       .catch(e => console.log('SW 등록 실패', e));
   });
 }
+
+
 </script>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4b-2dNL7NhAfwqQNWOMAS4y2-oft0FZo",
+  authDomain: "pushup100-7177c.firebaseapp.com",
+  projectId: "pushup100-7177c",
+  storageBucket: "pushup100-7177c.firebasestorage.app",
+  messagingSenderId: "302233410903",
+  appId: "1:302233410903:web:a821bfcde7fae5efb37212"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+function getDeviceId() {
+  let id = localStorage.getItem('push100_device_id');
+  if (!id) {
+    id = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('push100_device_id', id);
+  }
+  return id;
+}
+
+async function saveToCloud(state) {
+  try {
+    await setDoc(doc(db, 'pushup100', getDeviceId()), {
+      ...state,
+      updatedAt: new Date().toISOString()
+    });
+  } catch(e) { console.log('클라우드 저장 실패:', e); }
+}
+
+async function loadFromCloud() {
+  try {
+    const snap = await getDoc(doc(db, 'pushup100', getDeviceId()));
+    if (snap.exists()) {
+      const cloudState = snap.data();
+      const localState = JSON.parse(localStorage.getItem('pushup_state_v2') || '{}');
+      if (!localState.updatedAt || cloudState.updatedAt > localState.updatedAt) {
+        localStorage.setItem('pushup_state_v2', JSON.stringify(cloudState));
+        console.log('클라우드에서 복원됨');
+        location.reload(); // 최신 데이터로 재시작
+      }
+    }
+  } catch(e) { console.log('클라우드 불러오기 실패:', e); }
+}
+
+// 전역으로 노출해서 기존 saveState에서 호출 가능하게
+window.saveToCloud = saveToCloud;
+
+// 앱 로드시 클라우드 확인
+loadFromCloud();
+</script>
+
 </body>
 </html>
