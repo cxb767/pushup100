@@ -181,6 +181,22 @@
   .total-label{font-size:13px;color:var(--muted);}
   .btn-next-day{width:100%;background:var(--accent);color:#0e0f11;border:none;border-radius:10px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-bottom:10px;}
 
+  /* 캘린더 날짜 클릭 팝업 */
+  .cal-popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;align-items:flex-end;justify-content:center;padding:0;}
+  .cal-popup-overlay.open{display:flex;}
+  .cal-popup-box{background:var(--card);border-top:2px solid var(--accent);border-radius:16px 16px 0 0;padding:24px 20px 36px;width:100%;max-width:480px;}
+  .cal-popup-box .cp-date{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .cal-popup-box .cp-title{font-family:'Oswald',sans-serif;font-size:20px;color:var(--accent);margin-bottom:14px;}
+  .cal-popup-box .cp-info{font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:16px;}
+  .cal-popup-box .cp-log{background:var(--surface);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.9;}
+  .cal-popup-box .cp-log .cp-log-title{color:var(--text);font-weight:700;margin-bottom:6px;font-size:13px;}
+  .cp-actions{display:flex;flex-direction:column;gap:8px;}
+  .btn-cp-primary{background:var(--accent);color:#0e0f11;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+  .btn-cp-secondary{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+  .btn-cp-danger{background:rgba(255,71,71,.1);border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+  .fc-day{cursor:pointer;transition:opacity .15s;}
+  .fc-day:hover{opacity:.75;}
+
   /* TOAST */
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--accent);color:var(--accent);padding:11px 22px;border-radius:24px;font-size:14px;font-weight:500;z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
   .toast.show{transform:translateX(-50%) translateY(0);}
@@ -316,6 +332,33 @@
     <p style="margin-top:14px;" id="complete-msg"></p>
   </div>
   <button class="btn-next-day" onclick="afterComplete()">계속 →</button>
+  <button class="btn-secondary" id="btn-repeat-day" onclick="repeatPrevDay()" style="width:100%;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:14px;font-size:14px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-top:4px;display:none;">
+    😓 힘들었어요 — 직전 DAY 다시 하기
+  </button>
+</div>
+
+<!-- 최종 100회 테스트 화면 -->
+<div class="screen" id="screen-final-test">
+  <div class="test-card">
+    <h2>🏆 최종 100회 테스트</h2>
+    <p>6주 과정을 완료했습니다! 이제 최종 테스트에 도전할 준비가 됐습니다.</p>
+    <div class="info-box">
+      <strong>테스트 전 준비:</strong><br>
+      • 1–2일 충분히 휴식하세요<br>
+      • 수분을 충분히 보충하세요<br>
+      • 에너지를 소모하는 활동을 피하세요
+    </div>
+    <div class="warn-box">
+      <strong>💡 100회 달성 팁:</strong><br>
+      • 10개씩 나눠서 생각하세요<br>
+      • 좋은 자세를 끝까지 유지하세요<br>
+      • 흔들리면 잠깐 멈춰 호흡을 가다듬으세요<br>
+      • 한 번에 한 개씩 — 100번째까지!
+    </div>
+    <button class="btn-primary" onclick="showScreen('screen-main');renderMain();" style="margin-bottom:10px;">← 메인으로</button>
+    <button class="btn-primary" style="background:var(--accent2);margin-bottom:10px;" onclick="restartFromWeek(5)">아직 부족해요 — W5부터 다시</button>
+    <button class="btn-primary" style="background:var(--surface);color:var(--muted);border:1px solid var(--border);" onclick="restartFromWeek(6)">W6부터 다시</button>
+  </div>
 </div>
 
 </main>
@@ -333,6 +376,20 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 캘린더 날짜 클릭 팝업 -->
+<div class="cal-popup-overlay" id="cal-popup" onclick="closeCalPopup(event)">
+  <div class="cal-popup-box">
+    <div class="cp-date" id="cp-date"></div>
+    <div class="cp-title" id="cp-title"></div>
+    <div class="cp-info" id="cp-info"></div>
+    <div class="cp-log" id="cp-log" style="display:none;">
+      <div class="cp-log-title">📋 운동 기록</div>
+      <div id="cp-log-body"></div>
+    </div>
+    <div class="cp-actions" id="cp-actions"></div>
+  </div>
+</div>
 
 <script>
 /* ═══ 플랜 데이터 (hundredpushups.com 공식) ═══ */
@@ -625,10 +682,115 @@ function renderFullCalendar() {
       else div.classList.add('fc-rest');
       if (isToday) div.classList.add('fc-today');
       div.innerHTML = `<div class="fcd-dow">${dows[d.getDay()]}</div><div class="fcd-num">${d.getDate()}</div><div class="fcd-tag">${isDone ? '✓' : isWorkout ? '운동' : '·'}</div>`;
+
+      // 클릭 이벤트
+      const sessionIdx = state.workoutDays.indexOf(ds);
+      div.onclick = () => openCalPopup(ds, isWorkout, isDone, sessionIdx, w+1);
       daysDiv.appendChild(div);
     }
     weekDiv.appendChild(daysDiv);
     body.appendChild(weekDiv);
+  }
+}
+
+/* ═══ 캘린더 팝업 ═══ */
+function openCalPopup(ds, isWorkout, isDone, sessionIdx, weekNum) {
+  const popup = document.getElementById('cal-popup');
+  const d = new Date(ds + 'T00:00:00');
+  const dows = ['일','월','화','수','목','금','토'];
+
+  document.getElementById('cp-date').textContent = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${dows[d.getDay()]})`;
+
+  const logEl = document.getElementById('cp-log');
+  const logBody = document.getElementById('cp-log-body');
+  const actions = document.getElementById('cp-actions');
+  actions.innerHTML = '';
+
+  if (isWorkout && sessionIdx >= 0) {
+    const w = Math.floor(sessionIdx / 3) + 1;
+    const day = (sessionIdx % 3) + 1;
+    document.getElementById('cp-title').textContent = isDone ? `✅ WEEK ${w} DAY ${day} 완료` : `💪 WEEK ${w} DAY ${day} 운동일`;
+    document.getElementById('cp-info').textContent = isDone
+      ? `이 날 운동을 완료했습니다.`
+      : ds > todayStr() ? `예정된 운동일입니다.` : `운동을 아직 완료하지 않았습니다.`;
+
+    // 운동 기록 표시
+    const logs = (state.completedLog || []).filter(l => l.date === ds || (l.week === w && l.day === day));
+    if (logs.length > 0) {
+      logEl.style.display = 'block';
+      logBody.innerHTML = logs.map((l, i) =>
+        `${i+1}회차 수행 — ${l.date} (W${l.week} D${l.day})`
+      ).join('<br>');
+    } else {
+      logEl.style.display = 'none';
+    }
+
+    // 버튼
+    if (isDone) {
+      // 완료된 날 — 이 DAY부터 다시 시작
+      const btn = document.createElement('button');
+      btn.className = 'btn-cp-danger';
+      btn.textContent = `🔄 W${w} DAY${day}부터 다시 시작`;
+      btn.onclick = () => {
+        state.week = w;
+        state.workoutDay = day;
+        state.setsDone = [];
+        // 이후 기록 제거
+        const afterIdx = sessionIdx;
+        state.completedDays = state.completedDays.filter(dd => {
+          const si = state.workoutDays.indexOf(dd);
+          return si < afterIdx;
+        });
+        if (!state.levelByWeek[w]) state.levelByWeek[w] = getCurrentLevel();
+        saveState();
+        closeCalPopup();
+        showScreen('screen-main');
+        renderMain();
+        showToast(`W${w} DAY${day}부터 다시 시작합니다`);
+      };
+      actions.appendChild(btn);
+    } else if (ds <= todayStr()) {
+      // 미완료 과거/오늘 운동일 — 이 DAY로 이동
+      const btn = document.createElement('button');
+      btn.className = 'btn-cp-primary';
+      btn.textContent = `▶ W${w} DAY${day}로 이동해서 운동하기`;
+      btn.onclick = () => {
+        state.week = w;
+        state.workoutDay = day;
+        state.setsDone = [];
+        if (!state.levelByWeek[w]) state.levelByWeek[w] = getCurrentLevel();
+        saveState();
+        closeCalPopup();
+        showScreen('screen-main');
+        renderMain();
+        showToast(`W${w} DAY${day}로 이동했습니다`);
+      };
+      actions.appendChild(btn);
+    } else {
+      // 미래 운동일
+      document.getElementById('cp-info').textContent = `예정된 운동일입니다. W${w} DAY${day} 플랜이 적용됩니다.`;
+      logEl.style.display = 'none';
+    }
+  } else {
+    // 휴식일
+    document.getElementById('cp-title').textContent = '💤 휴식일';
+    document.getElementById('cp-info').textContent = '이 날은 휴식일입니다. 충분히 회복하세요.';
+    logEl.style.display = 'none';
+  }
+
+  // 닫기 버튼
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-cp-secondary';
+  closeBtn.textContent = '닫기';
+  closeBtn.onclick = closeCalPopup;
+  actions.appendChild(closeBtn);
+
+  popup.classList.add('open');
+}
+
+function closeCalPopup(e) {
+  if (!e || e.target === document.getElementById('cal-popup')) {
+    document.getElementById('cal-popup').classList.remove('open');
   }
 }
 
@@ -781,9 +943,15 @@ function clearTimer() {
 function skipRest() { clearTimer(); showToast('휴식 건너뜀'); }
 
 /* ═══ DAY COMPLETE ═══ */
+let _prevWeek = 1, _prevDay = 1; // 직전 DAY 기억용
+
 function markDayComplete() {
   const si = (state.week - 1) * 3 + (state.workoutDay - 1);
   const dateStr = state.workoutDays[si];
+
+  // 기록: 같은 날 중복 허용 (반복 시 추가 기록)
+  if (!state.completedLog) state.completedLog = [];
+  state.completedLog.push({ date: todayStr(), week: state.week, day: state.workoutDay });
   if (!state.completedDays.includes(dateStr)) state.completedDays.push(dateStr);
 
   const plan = PLAN[state.week];
@@ -792,34 +960,86 @@ function markDayComplete() {
   const total = dayPlan.sets.reduce((s, arr) => s + arr[lvl], 0);
   document.getElementById('complete-total').textContent = total + '+';
 
-  const msgs = {
-    1: '1주차 완료! 자세에 익숙해졌나요? 잘 하셨습니다 💪',
-    2: '잘 하셨습니다! 2주차 완료 후 체력 재테스트를 잊지 마세요.',
-    3: '중반 관문을 넘었습니다! 계속 달려보세요.',
-    4: '4주차 완료! 재테스트로 다음 레벨을 확인하세요.',
-    5: '5주차 완료! 거의 다 왔습니다 🔥',
-    6: '6주차 완료! 이제 100회 최종 테스트에 도전하세요! 🏆'
-  };
-  document.getElementById('complete-msg').textContent = msgs[state.week] || '훌륭합니다!';
+  // 직전 DAY 저장
+  _prevWeek = state.week;
+  _prevDay = state.workoutDay;
+
+  const isWeekEnd = state.workoutDay === 3;
+  const isFinalDay = state.week === 6 && state.workoutDay === 3;
+
+  let msg = '';
+  if (isFinalDay) {
+    msg = '🏆 6주 전 과정 완료! 1–2일 쉬고 최종 100회 테스트에 도전하세요!';
+  } else if (isWeekEnd) {
+    const weekMsgs = {
+      1: '1주차 완료! 자세에 익숙해졌나요? 잘 하셨습니다 💪',
+      2: '2주차 완료! 며칠 내로 체력 재테스트를 꼭 하세요.',
+      3: '3주차 완료! 절반을 넘었습니다. 계속 달려보세요!',
+      4: '4주차 완료! 체력 재테스트로 다음 레벨을 확인하세요.',
+      5: '5주차 완료! 거의 다 왔습니다 🔥 재테스트 후 45회 이상이면 6주차로!',
+    };
+    msg = weekMsgs[state.week] || '잘 하셨습니다!';
+  } else {
+    msg = `DAY ${state.workoutDay} 완료! 하루 쉬고 DAY ${state.workoutDay + 1}을 진행하세요.`;
+  }
+  document.getElementById('complete-msg').textContent = msg;
+
+  // 직전 DAY 반복 버튼 표시 (항상 보여줌)
+  const repeatBtn = document.getElementById('btn-repeat-day');
+  if (_prevDay > 1 || _prevWeek > 1) {
+    repeatBtn.style.display = 'block';
+    const pW = _prevDay === 1 ? _prevWeek - 1 : _prevWeek;
+    const pD = _prevDay === 1 ? 3 : _prevDay - 1;
+    repeatBtn.textContent = `😓 힘들었어요 — W${pW} DAY${pD} 다시 하기`;
+  } else {
+    repeatBtn.style.display = 'none';
+  }
 
   // 세션 advance
-  if (state.workoutDay < 3) { state.workoutDay++; }
-  else if (state.week < 6) { state.week++; state.workoutDay = 1; }
-  state.setsDone = [];
-
-  // 레벨 초기화 (새 주차에 기존 레벨 상속)
-  if (!state.levelByWeek[state.week]) {
-    state.levelByWeek[state.week] = getCurrentLevel();
+  if (!isFinalDay) {
+    if (state.workoutDay < 3) { state.workoutDay++; }
+    else if (state.week < 6) { state.week++; state.workoutDay = 1; }
+    state.setsDone = [];
+    if (!state.levelByWeek[state.week]) {
+      state.levelByWeek[state.week] = getCurrentLevel();
+    }
   }
 
   saveState();
-  setTimeout(() => showScreen('screen-day-complete'), 300);
+  setTimeout(() => {
+    if (isFinalDay) showScreen('screen-final-test');
+    else showScreen('screen-day-complete');
+  }, 300);
 }
 
 function afterComplete() {
   showScreen('screen-main');
   renderMain();
-  // 재테스트 필요하면 바로 안내
+}
+
+function repeatPrevDay() {
+  // 직전 성공한 DAY로 돌아가기
+  const pW = _prevDay === 1 ? _prevWeek - 1 : _prevWeek;
+  const pD = _prevDay === 1 ? 3 : _prevDay - 1;
+  if (pW < 1) { showToast('되돌아갈 이전 DAY가 없습니다'); return; }
+  state.week = pW;
+  state.workoutDay = pD;
+  state.setsDone = [];
+  saveState();
+  showScreen('screen-main');
+  renderMain();
+  showToast(`W${pW} DAY${pD}로 돌아갑니다`);
+}
+
+function restartFromWeek(w) {
+  state.week = w;
+  state.workoutDay = 1;
+  state.setsDone = [];
+  if (!state.levelByWeek[w]) state.levelByWeek[w] = getCurrentLevel();
+  saveState();
+  showScreen('screen-main');
+  renderMain();
+  showToast(`Week ${w}부터 다시 시작합니다`);
 }
 
 /* ═══ 재테스트 ═══ */
